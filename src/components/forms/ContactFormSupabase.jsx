@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { useContactForm } from '@/hooks/useContactForm';
 
-const ContactForm = () => {
+const ContactFormSupabase = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -8,13 +9,14 @@ const ContactForm = () => {
     subject: '',
     message: ''
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  const { submitContactForm, isSubmitting, error } = useContactForm();
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    console.log('Input changed:', name, value); // Debug log
+    console.log('Input changed:', name, value);
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -25,80 +27,43 @@ const ContactForm = () => {
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('Form submit triggered'); // Debug log
-    console.log('Form data:', formData); // Debug log
+    console.log('Form submit triggered');
+    console.log('Form data:', formData);
     
     // Basic validation
     if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
       setSubmitError('请填写必填字段');
-      alert('请填写所有必填字段（姓名、邮箱、消息）');
       return;
     }
 
-    setIsSubmitting(true);
     setSubmitSuccess(false);
     setSubmitError('');
 
     try {
-      console.log('Submitting to API...'); // Debug log
+      const result = await submitContactForm(formData);
       
-      // 直接提交到 API 端点
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          timestamp: new Date().toISOString(),
-          form_type: 'contact'
-        })
-      });
-
-      console.log('API Response status:', response.status); // Debug log
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('API Error:', errorData);
-        throw new Error(`提交失败: ${response.status} ${response.statusText}`);
+      if (result.success) {
+        setSubmitSuccess(true);
+        setSubmitError('');
+        
+        // Reset form
+        setFormData({
+          name: '',
+          email: '',
+          phone: '',
+          subject: '',
+          message: ''
+        });
+        
+        // Hide success message after 5 seconds
+        setTimeout(() => setSubmitSuccess(false), 5000);
+      } else {
+        setSubmitError(result.error?.message || '提交失败，请稍后重试');
       }
-
-      const result = await response.json();
-      console.log('API Success:', result); // Debug log
-      
-      setSubmitSuccess(true);
-      setSubmitError('');
-      
-      // Reset form
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        subject: '',
-        message: ''
-      });
-      
-      alert('表单提交成功！我们会尽快与您联系。');
-      
-      // Hide success message after 5 seconds
-      setTimeout(() => setSubmitSuccess(false), 5000);
-      
     } catch (err) {
-      console.error('提交过程中出错:', err);
-      const errorMessage = err.message || '网络错误，请稍后重试';
-      setSubmitError(errorMessage);
-      alert(`提交失败: ${errorMessage}`);
-    } finally {
-      setIsSubmitting(false);
+      console.error('Submit error:', err);
+      setSubmitError(err.message || '提交失败，请稍后重试');
     }
-  };
-
-  // Handle button click specifically
-  const handleButtonClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Button clicked directly'); // Debug log
-    handleSubmit(e);
   };
 
   return (
@@ -119,7 +84,7 @@ const ContactForm = () => {
         </div>
       )}
 
-      {submitError && (
+      {(submitError || error) && (
         <div className="alert alert-danger mb-4" style={{
           padding: '15px',
           backgroundColor: '#f8d7da',
@@ -128,7 +93,7 @@ const ContactForm = () => {
           color: '#721c24',
           marginBottom: '20px'
         }}>
-          ❌ {submitError}
+          ❌ {submitError || error}
         </div>
       )}
 
@@ -200,13 +165,11 @@ const ContactForm = () => {
           <div className="col-lg-12">
             <button 
               type="submit"
-              onClick={handleButtonClick}
               id="aximo-submit-btn2"
               disabled={isSubmitting}
               style={{
                 opacity: isSubmitting ? 0.7 : 1,
                 cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                backgroundColor: isSubmitting ? '#ccc' : '',
                 minWidth: '150px'
               }}
             >
@@ -218,7 +181,7 @@ const ContactForm = () => {
         </div>
       </form>
 
-      {/* Debug info - remove in production */}
+      {/* Debug info */}
       <div style={{ 
         marginTop: '20px', 
         padding: '10px', 
@@ -235,4 +198,4 @@ const ContactForm = () => {
   );
 };
 
-export default ContactForm;
+export default ContactFormSupabase;
