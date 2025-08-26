@@ -20,7 +20,11 @@ const MessageForm = () => {
       try {
         console.log('检查Supabase连接...');
         console.log('Supabase client:', supabase);
-        console.log('Supabase URL:', supabase.supabaseUrl);
+        
+        if (!supabase || !supabase.supabaseUrl || supabase.supabaseUrl === 'NOT_CONFIGURED') {
+          setSupabaseStatus('Supabase未配置');
+          return;
+        }
         
         // 测试连接
         const { data, error } = await supabase
@@ -47,6 +51,7 @@ const MessageForm = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    console.log(`输入变化: ${name} = ${value}`);
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -54,17 +59,23 @@ const MessageForm = () => {
   };
 
   const handleSubmit = async (e) => {
+    console.log('🚀 handleSubmit 被调用!');
+    console.log('事件对象:', e);
+    console.log('事件类型:', e.type);
+    
     e.preventDefault();
+    e.stopPropagation();
     
     console.log('=== 表单提交开始 ===');
     console.log('Current Page:', window.location.pathname);
     console.log('Submit Form Data =', formData);
-    console.log('Supabase client available:', !!supabase);
     
     // 基础验证
     if (!formData.name.trim() || !formData.email.trim()) {
-      setSubmitError('请填写姓名和邮箱');
-      alert('请填写姓名和邮箱');
+      const errorMsg = '请填写姓名和邮箱';
+      setSubmitError(errorMsg);
+      alert(errorMsg);
+      console.log('验证失败:', errorMsg);
       return;
     }
 
@@ -74,6 +85,11 @@ const MessageForm = () => {
 
     try {
       console.log('=== 开始Supabase操作 ===');
+      
+      // 检查Supabase是否可用
+      if (!supabase || supabase.supabaseUrl === 'NOT_CONFIGURED') {
+        throw new Error('Supabase未正确配置，请检查环境变量');
+      }
       
       // 生成匿名用户ID
       const anonymousUserId = 'anonymous-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
@@ -93,21 +109,6 @@ const MessageForm = () => {
       };
 
       console.log('准备提交的数据:', JSON.stringify(submissionData, null, 2));
-      console.log('表名:', 'bf3599cd-07a7-4490-a47d-631b6fa295f8_submissions');
-
-      // 先测试表是否存在
-      console.log('测试表访问权限...');
-      const { data: testData, error: testError } = await supabase
-        .from('bf3599cd-07a7-4490-a47d-631b6fa295f8_submissions')
-        .select('id')
-        .limit(1);
-      
-      console.log('表访问测试结果:', { testData, testError });
-      
-      if (testError) {
-        console.error('表访问失败:', testError);
-        throw new Error(`表访问失败: ${testError.message}`);
-      }
 
       // 执行插入操作
       console.log('执行插入操作...');
@@ -123,13 +124,7 @@ const MessageForm = () => {
 
       if (error) {
         console.error('Supabase插入错误:', error);
-        console.error('错误详情:', JSON.stringify(error, null, 2));
-        throw new Error(`数据库错误: ${error.message} (代码: ${error.code})`);
-      }
-
-      if (!data) {
-        console.error('插入成功但没有返回数据');
-        throw new Error('插入操作未返回数据');
+        throw new Error(`数据库错误: ${error.message}`);
       }
 
       console.log('=== 提交成功! ===', data);
@@ -155,8 +150,6 @@ const MessageForm = () => {
     } catch (err) {
       console.error('=== 提交失败 ===');
       console.error('错误对象:', err);
-      console.error('错误消息:', err.message);
-      console.error('错误堆栈:', err.stack);
       
       const errorMessage = err.message || '提交失败，请稍后重试';
       setSubmitError(errorMessage);
@@ -167,21 +160,22 @@ const MessageForm = () => {
     }
   };
 
-  // 测试Supabase连接的按钮
-  const testSupabaseConnection = async () => {
-    console.log('手动测试Supabase连接...');
-    try {
-      const { data, error } = await supabase
-        .from('bf3599cd-07a7-4490-a47d-631b6fa295f8_submissions')
-        .select('*')
-        .limit(1);
-      
-      console.log('手动测试结果:', { data, error });
-      alert(`测试结果: ${error ? `错误: ${error.message}` : '连接正常'}`);
-    } catch (err) {
-      console.error('手动测试异常:', err);
-      alert(`测试异常: ${err.message}`);
-    }
+  // 按钮点击处理器
+  const handleButtonClick = (e) => {
+    console.log('🔘 按钮被点击!');
+    console.log('点击事件:', e);
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // 直接调用提交函数
+    handleSubmit(e);
+  };
+
+  // 测试函数
+  const testFunction = () => {
+    console.log('🧪 测试函数被调用');
+    alert('测试函数工作正常！');
   };
 
   return (
@@ -201,19 +195,19 @@ const MessageForm = () => {
         <strong>Supabase状态:</strong> {supabaseStatus}
         <button 
           type="button" 
-          onClick={testSupabaseConnection}
+          onClick={testFunction}
           style={{
             marginLeft: '10px',
             padding: '5px 10px',
             fontSize: '12px',
-            backgroundColor: '#007bff',
+            backgroundColor: '#28a745',
             color: 'white',
             border: 'none',
             borderRadius: '3px',
             cursor: 'pointer'
           }}
         >
-          测试连接
+          测试按钮
         </button>
       </div>
       
@@ -243,7 +237,7 @@ const MessageForm = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} id="contact-form">
         <div className="row">
           <div className="col-lg-6">
             <div className="aximo-form-field2">
@@ -308,8 +302,10 @@ const MessageForm = () => {
             </div>
           </div>
           <div className="col-lg-12">
+            {/* 主提交按钮 */}
             <button 
               type="submit"
+              onClick={handleButtonClick}
               disabled={isSubmitting}
               style={{
                 opacity: isSubmitting ? 0.7 : 1,
@@ -319,12 +315,33 @@ const MessageForm = () => {
                 backgroundColor: isSubmitting ? '#ccc' : '#007bff',
                 color: 'white',
                 border: 'none',
-                borderRadius: '5px'
+                borderRadius: '5px',
+                marginRight: '10px'
               }}
             >
               <span>
                 {isSubmitting ? '提交中...' : '发送消息'}
               </span>
+            </button>
+            
+            {/* 备用测试按钮 */}
+            <button 
+              type="button"
+              onClick={() => {
+                console.log('🔥 直接调用提交函数');
+                handleSubmit({ preventDefault: () => {}, stopPropagation: () => {}, type: 'manual' });
+              }}
+              disabled={isSubmitting}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              直接提交
             </button>
           </div>
         </div>
@@ -346,7 +363,13 @@ const MessageForm = () => {
         成功状态: {submitSuccess ? '是' : '否'}<br/>
         错误信息: {submitError || '无'}<br/>
         Supabase状态: {supabaseStatus}<br/>
-        表单数据: {JSON.stringify(formData, null, 2)}<br/>
+        <br/>
+        <strong>表单数据:</strong><br/>
+        姓名: {formData.name || '(空)'}<br/>
+        邮箱: {formData.email || '(空)'}<br/>
+        电话: {formData.phone || '(空)'}<br/>
+        主题: {formData.subject || '(空)'}<br/>
+        消息: {formData.message || '(空)'}<br/>
         <br/>
         <strong>Supabase配置:</strong><br/>
         URL: {supabase?.supabaseUrl || '未配置'}<br/>
